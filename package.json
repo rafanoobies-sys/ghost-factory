@@ -1,0 +1,22 @@
+{
+  "name": "ghost-factory",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Self-healing debug agent for Omega and beyond",
+  "main": "index.js",
+  "scripts": {
+    "test": "node test-memory.js"
+  },
+  "keywords": [
+    "debug",
+    "ai",
+    "self-healing",
+    "ghost"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@supabase/supabase-js": "^2.112.3",
+    "dotenv": "^17.4.2"
+  }
+}
