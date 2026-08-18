@@ -15,25 +15,39 @@ ${error.stack || 'No stack trace available'}
 
 Suggest a fix for this error. Be concise. Return only the fix description.`
 
-  const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${GROQ_API_KEY}`,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({
-      model: 'llama-3.3-70b-versatile',
-      messages: [{ role: 'user', content: prompt }],
-      temperature: 0.3,
-      max_tokens: 200
-    })
-  })
+  const models = ['openai/gpt-oss-20b', 'openai/gpt-oss-120b', 'qwen/qwen3.6-27b']
 
-  if (!response.ok) {
-    console.error('Groq error:', response.statusText)
-    return 'No fix generated'
+  for (const model of models) {
+    try {
+      const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${GROQ_API_KEY}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          model: model,
+          messages: [{ role: 'user', content: prompt }],
+          temperature: 0.3,
+          max_tokens: 200
+        })
+      })
+
+      if (!response.ok) {
+        const text = await response.text()
+        console.error(`Groq error (${model}):`, response.status, text)
+        continue
+      }
+
+      const data = await response.json()
+      const content = data.choices?.[0]?.message?.content
+      if (content && content.length > 10) {
+        return content
+      }
+    } catch (e) {
+      console.error(`Request failed for ${model}:`, e)
+    }
   }
 
-  const data = await response.json()
-  return data.choices?.[0]?.message?.content || 'No fix generated'
+  return 'No fix generated'
 }

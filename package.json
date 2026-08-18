@@ -7,6 +7,9 @@
   "scripts": {
     "test": "node test-memory.js"
   },
+  "bin": {
+    "ghost": "./cli.js"
+  },
   "keywords": [
     "debug",
     "ai",
@@ -17,6 +20,7 @@
   "license": "MIT",
   "dependencies": {
     "@supabase/supabase-js": "^2.112.3",
+    "chokidar": "^5.0.0",
     "dotenv": "^17.4.2"
   }
 }
