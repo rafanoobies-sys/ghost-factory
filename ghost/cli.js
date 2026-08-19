@@ -1,7 +1,9 @@
 #!/usr/bin/env node
 
+import 'dotenv/config'
 import fs from 'fs/promises'
 import { mockFix } from './core/fixer.mock.js'
+import { realFix } from './core/fixer.js'
 import { storeError, getRecentFixes, clearMemory } from './core/memory.js'
 
 // --- Helper: generate a simple line-by-line diff ---
@@ -46,9 +48,12 @@ if (args.length === 0 || args[0] === '--help' || args[0] === '-h') {
 👻 GHOST — Safe Self-Healing Debugger
 
 Usage:
-  ghost fix <file>          Fix errors in a file (shows diff, asks approval)
-  ghost memory show         Show recent fixes stored in local memory
-  ghost memory clear        Clear all stored fixes (asks for confirmation)
+  ghost fix <file> [error_message] [--mock]   Fix errors in a file (shows diff, asks approval)
+  ghost memory show                           Show recent fixes stored in local memory
+  ghost memory clear                          Clear all stored fixes (asks for confirmation)
+
+Options:
+  --mock                                      Force mock fixer (offline, no API call)
 `)
   process.exit(0)
 }
@@ -62,6 +67,11 @@ if (command === 'fix') {
     process.exit(1)
   }
 
+  // Parse optional error message and --mock flag
+  const restArgs = args.slice(2)
+  const mockFlag = restArgs.includes('--mock')
+  const errorMessage = restArgs.filter(a => a !== '--mock').join(' ')
+
   // 1. Read the file
   let originalCode
   try {
@@ -72,9 +82,20 @@ if (command === 'fix') {
     process.exit(1)
   }
 
-  // 2. Get proposed fix (mock for now)
-  console.log(`🔧 GHOST is analyzing ${filePath}...`)
-  const proposedCode = await mockFix(originalCode)
+  // 2. Get proposed fix (mock or real)
+  let proposedCode
+  if (mockFlag) {
+    console.log('🔧 Using MOCK fixer (offline)...')
+    proposedCode = await mockFix(originalCode)
+  } else {
+    console.log(`🔧 GHOST is analyzing ${filePath}...`)
+    proposedCode = await realFix(originalCode, errorMessage)
+    if (proposedCode === null) {
+      // Fallback to mock if real fixer failed / no key
+      console.log('🔄 Falling back to mock fixer...')
+      proposedCode = await mockFix(originalCode)
+    }
+  }
 
   // 3. Check if any change
   if (proposedCode === originalCode) {
@@ -106,7 +127,7 @@ if (command === 'fix') {
   }
 
   // 7. Store in memory
-  const error = new Error(`GHOST fixed ${filePath}`)
+  const error = new Error(`GHOST fixed ${filePath}${errorMessage ? ': ' + errorMessage : ''}`)
   error.stack = originalCode
   await storeError(error, proposedCode)
   console.log('🧠 Fix stored in local memory.')
