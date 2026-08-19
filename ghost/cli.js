@@ -131,6 +131,7 @@ if (command === 'fix') {
   error.stack = originalCode
   await storeError(error, proposedCode)
   console.log('🧠 Fix stored in local memory.')
+  process.exit(0)   // <-- ADDED: important for terminal release
 
 } else if (command === 'memory') {
   const sub = args[1]
@@ -150,6 +151,7 @@ if (command === 'fix') {
         console.log('')
       })
     }
+    process.exit(0)   // <-- ADDED
 
   } else if (sub === 'clear') {
     const confirm = await askYesNo('Are you sure you want to clear all fixes?')
@@ -159,9 +161,11 @@ if (command === 'fix') {
     } else {
       console.log('❌ Clear cancelled.')
     }
+    process.exit(0)   // <-- ADDED
 
   } else {
     console.log('Usage: ghost memory show|clear')
+    process.exit(0)   // <-- ADDED
   }
 
 } else {
