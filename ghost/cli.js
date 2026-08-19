@@ -1,44 +1,10 @@
 #!/usr/bin/env node
 
 import 'dotenv/config'
-import fs from 'fs/promises'
-import { mockFix } from './core/fixer.mock.js'
-import { realFix } from './core/fixer.js'
-import { storeError, getRecentFixes, clearMemory } from './core/memory.js'
-
-// --- Helper: generate a simple line-by-line diff ---
-function generateDiff(original, proposed) {
-  const origLines = original.split('\n')
-  const propLines = proposed.split('\n')
-  const result = []
-
-  const maxLen = Math.max(origLines.length, propLines.length)
-
-  for (let i = 0; i < maxLen; i++) {
-    const o = origLines[i]
-    const p = propLines[i]
-
-    if (o === p) {
-      result.push(`  ${o}`)
-    } else {
-      if (o !== undefined) result.push(`- ${o}`)
-      if (p !== undefined) result.push(`+ ${p}`)
-    }
-  }
-
-  return result.join('\n')
-}
-
-// --- Helper: ask a yes/no question ---
-function askYesNo(question) {
-  return new Promise((resolve) => {
-    process.stdout.write(question + ' (y/n): ')
-    process.stdin.once('data', (data) => {
-      const answer = data.toString().trim().toLowerCase()
-      resolve(answer === 'y' || answer === 'yes')
-    })
-  })
-}
+import path from 'path'
+import chokidar from 'chokidar'
+import { runFixFlow } from './core/fixFlow.js'
+import { getRecentFixes, clearMemory } from './core/memory.js'
 
 // --- Main CLI ---
 const args = process.argv.slice(2)
@@ -49,6 +15,7 @@ if (args.length === 0 || args[0] === '--help' || args[0] === '-h') {
 
 Usage:
   ghost fix <file> [error_message] [--mock]   Fix errors in a file (shows diff, asks approval)
+  ghost watch [directory] [--mock]            Watch a directory and run safe fix on changes
   ghost memory show                           Show recent fixes stored in local memory
   ghost memory clear                          Clear all stored fixes (asks for confirmation)
 
@@ -69,69 +36,56 @@ if (command === 'fix') {
 
   // Parse optional error message and --mock flag
   const restArgs = args.slice(2)
-  const mockFlag = restArgs.includes('--mock')
+  const useMock = restArgs.includes('--mock')
   const errorMessage = restArgs.filter(a => a !== '--mock').join(' ')
 
-  // 1. Read the file
-  let originalCode
-  try {
-    originalCode = await fs.readFile(filePath, 'utf-8')
-  } catch (err) {
-    console.error(`❌ Could not read file: ${filePath}`)
-    console.error(err.message)
-    process.exit(1)
-  }
+  const success = await runFixFlow(filePath, errorMessage, useMock)
+  process.exit(success ? 0 : 1)
 
-  // 2. Get proposed fix (mock or real)
-  let proposedCode
-  if (mockFlag) {
-    console.log('🔧 Using MOCK fixer (offline)...')
-    proposedCode = await mockFix(originalCode)
-  } else {
-    console.log(`🔧 GHOST is analyzing ${filePath}...`)
-    proposedCode = await realFix(originalCode, errorMessage)
-    if (proposedCode === null) {
-      // Fallback to mock if real fixer failed / no key
-      console.log('🔄 Falling back to mock fixer...')
-      proposedCode = await mockFix(originalCode)
+} else if (command === 'watch') {
+  const targetDir = args[1] || '.'
+  const restArgs = args.slice(2)
+  const useMock = restArgs.includes('--mock')
+  const errorMessage = restArgs.filter(a => a !== '--mock').join(' ')
+
+  console.log(`👻 GHOST is watching ${targetDir} for changes...`)
+  if (useMock) console.log('🔧 Using MOCK fixer (offline).')
+  console.log('Press Ctrl+C to stop.\n')
+
+  let isFixing = false   // <-- ADD THIS
+
+  const watcher = chokidar.watch(targetDir, {
+    ignored: /(^|[\/\\])\../, // ignore dotfiles
+    persistent: true,
+    ignoreInitial: true,
+  })
+
+  watcher.on('change', async (filePath) => {
+    // If GHOST is already fixing, ignore new change events (prevents loop)
+    if (isFixing) return
+
+    const ext = path.extname(filePath).toLowerCase()
+    const allowed = ['.js', '.jsx', '.ts', '.tsx', '.py', '.go', '.rs', '.java', '.c', '.cpp']
+    if (!allowed.includes(ext)) return
+
+        console.log(`\n📄 Change detected: ${filePath}`)
+    isFixing = true
+    const success = await runFixFlow(filePath, errorMessage, useMock)
+    isFixing = false
+    if (success) {
+      console.log('✅ Done. Still watching for changes...')
+    } else {
+      console.log('ℹ️  No changes applied. Still watching for changes...')
     }
-  }
+  })
 
-  // 3. Check if any change
-  if (proposedCode === originalCode) {
-    console.log('✅ No changes needed.')
+  // Keep process alive
+  process.stdin.resume()
+  process.on('SIGINT', () => {
+    console.log('\n👻 GHOST stopped watching.')
+    watcher.close()
     process.exit(0)
-  }
-
-  // 4. Show diff
-  console.log('\n--- DIFF ---')
-  console.log(generateDiff(originalCode, proposedCode))
-  console.log('--- END DIFF ---\n')
-
-  // 5. Ask for approval
-  const approve = await askYesNo('Apply this fix?')
-
-  if (!approve) {
-    console.log('❌ Fix rejected. No files were changed.')
-    process.exit(0)
-  }
-
-  // 6. Write the fix
-  try {
-    await fs.writeFile(filePath, proposedCode, 'utf-8')
-    console.log(`✅ GHOST fixed ${filePath}`)
-  } catch (err) {
-    console.error(`❌ Failed to write file: ${filePath}`)
-    console.error(err.message)
-    process.exit(1)
-  }
-
-  // 7. Store in memory
-  const error = new Error(`GHOST fixed ${filePath}${errorMessage ? ': ' + errorMessage : ''}`)
-  error.stack = originalCode
-  await storeError(error, proposedCode)
-  console.log('🧠 Fix stored in local memory.')
-  process.exit(0)   // <-- ADDED: important for terminal release
+  })
 
 } else if (command === 'memory') {
   const sub = args[1]
@@ -151,21 +105,27 @@ if (command === 'fix') {
         console.log('')
       })
     }
-    process.exit(0)   // <-- ADDED
+    process.exit(0)
 
   } else if (sub === 'clear') {
-    const confirm = await askYesNo('Are you sure you want to clear all fixes?')
+    const confirm = await new Promise((resolve) => {
+      process.stdout.write('Are you sure you want to clear all fixes? (y/n): ')
+      process.stdin.once('data', (data) => {
+        const answer = data.toString().trim().toLowerCase()
+        resolve(answer === 'y' || answer === 'yes')
+      })
+    })
     if (confirm) {
       await clearMemory()
       console.log('✅ Memory cleared.')
     } else {
       console.log('❌ Clear cancelled.')
     }
-    process.exit(0)   // <-- ADDED
+    process.exit(0)
 
   } else {
     console.log('Usage: ghost memory show|clear')
-    process.exit(0)   // <-- ADDED
+    process.exit(0)
   }
 
 } else {
