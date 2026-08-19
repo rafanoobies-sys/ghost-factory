@@ -2,13 +2,13 @@
   "name": "ghost-factory",
   "version": "1.0.0",
   "type": "module",
-  "description": "Self-healing debug agent for Omega and beyond",
-  "main": "index.js",
+  "description": "Safe self-healing debugger with local memory, mock and real Groq fixers",
+  "main": "ghost/cli.js",
   "scripts": {
-    "test": "node test-memory.js"
+    "start": "node ghost/cli.js --help"
   },
   "bin": {
-    "ghost": "./cli.js"
+    "ghost": "./ghost/cli.js"
   },
   "keywords": [
     "debug",
@@ -19,8 +19,6 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
-    "@supabase/supabase-js": "^2.112.3",
-    "chokidar": "^5.0.0",
     "dotenv": "^17.4.2"
   }
 }
