@@ -2,19 +2,24 @@
   "name": "ghost-factory",
   "version": "1.0.0",
   "type": "module",
-  "description": "Safe self-healing debugger with local memory, mock and real Groq fixers",
+  "description": "Safe self-healing debugger and scaffold builder — the Flying Dutchman crew",
   "main": "ghost/cli.js",
   "scripts": {
-    "start": "node ghost/cli.js --help"
+    "start": "node ghost/cli.js --help",
+    "ghost": "node ghost/cli.js",
+    "spectre": "node spectre/cli.js"
   },
   "bin": {
-    "ghost": "./ghost/cli.js"
+    "ghost": "./ghost/cli.js",
+    "spectre": "./spectre/cli.js"
   },
   "keywords": [
     "debug",
     "ai",
     "self-healing",
-    "ghost"
+    "ghost",
+    "spectre",
+    "builder"
   ],
   "author": "",
   "license": "MIT",
