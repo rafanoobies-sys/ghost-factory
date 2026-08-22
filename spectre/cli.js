@@ -16,6 +16,9 @@ Types:
   portfolio      Create a portfolio scaffold
   dashboard      Create a dashboard scaffold
   contact-form   Create a contact form scaffold
+  blog           Create a blog scaffold
+  api-starter    Create a Node.js API starter
+  automation     Create an automation script scaffold
 `)
   process.exit(0)
 }
