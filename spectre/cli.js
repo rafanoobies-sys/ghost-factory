@@ -12,7 +12,10 @@ Usage:
   node spectre/cli.js build <type> <name>
 
 Types:
-  landing-page   Create a simple landing page scaffold
+  landing-page   Create a landing page scaffold
+  portfolio      Create a portfolio scaffold
+  dashboard      Create a dashboard scaffold
+  contact-form   Create a contact form scaffold
 `)
   process.exit(0)
 }
