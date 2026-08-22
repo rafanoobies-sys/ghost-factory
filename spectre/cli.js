@@ -19,6 +19,11 @@ Types:
   blog           Create a blog scaffold
   api-starter    Create a Node.js API starter
   automation     Create an automation script scaffold
+  pricing        Create a pricing page
+  faq            Create an FAQ page
+  coming-soon    Create a coming soon page
+  bio-link       Create a link-in-bio page
+  documentation  Create a documentation page
 `)
   process.exit(0)
 }
